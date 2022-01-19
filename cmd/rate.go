@@ -15,8 +15,7 @@ import (
 
 var rateCmd = &cobra.Command{
 	Use:   "rate",
-	Short: "Short rate description",
-	Long:  "Long rate description",
+	Short: "Implements the client part of the application, receives data on the value of the currency",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pair, err := cmd.Flags().GetString("pair")
 		if err != nil {
@@ -47,6 +46,6 @@ var rateCmd = &cobra.Command{
 }
 
 func init() {
-	rateCmd.Flags().String("pair", "", "ETH-USDT or BTC-USDT")
+	rateCmd.Flags().String("pair", "", "Currently supported: "+strings.Join(crypto.GetServiceSupportedCryptos(), ", "))
 	rateCmd.MarkFlagRequired("pair")
 }

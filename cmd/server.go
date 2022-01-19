@@ -48,8 +48,7 @@ func parsePostPairs(req *http.Request) ([]string, errReason) {
 
 var serverCmd = &cobra.Command{
 	Use:   "server",
-	Short: "Short server description",
-	Long:  "Long server description",
+	Short: "Implements the server part of the application, runs and synchronizes data about the supported currency",
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		pricesMap := safemap.New()

@@ -8,9 +8,8 @@ import (
 
 func Execute() {
 	rootCmd := &cobra.Command{
-		Use:   "app",
-		Short: "Short app description",
-		Long:  "Long app description",
+		Use:   "what-to-farm",
+		Short: "An application that implements a server and a client to obtain data about a cryptocurrency with Binance API",
 	}
 
 	rootCmd.AddCommand(serverCmd, rateCmd)
