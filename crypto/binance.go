@@ -20,6 +20,14 @@ func GetBinanceSupportedCryptos() []string {
 	}
 }
 
+func GetServiceSupportedCryptos() []string {
+	return []string{
+		"ETH-USDT",
+		"BTC-USDT",
+		// TODO @imblowfish: add new cryptos here...
+	}
+}
+
 func ConvertToBinanceSymbol(symbol string) string {
 	converted, ok := map[string]string{
 		"ETH-USDT": "ETHUSDT",

@@ -1,6 +1,6 @@
-package cmd
+package utils
 
-func contains(requiredValues []string, v string) bool {
+func Contains(requiredValues []string, v string) bool {
 	for _, reqValue := range requiredValues {
 		if v == reqValue {
 			return true

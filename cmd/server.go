@@ -7,51 +7,43 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
+
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/imblowfish/what-to-farm-test/crypto"
+	"github.com/imblowfish/what-to-farm-test/safemap"
+	"github.com/imblowfish/what-to-farm-test/utils"
 )
 
-type safeMap struct {
-	mu     sync.Mutex
-	prices map[string]string
-}
+const binanceRequestDuration = 5 * time.Second
 
-func NewSafeMap() *safeMap {
-	return &safeMap{
-		prices: make(map[string]string),
+type errReason = string
+
+func parseGetPairs(req *http.Request) ([]string, errReason) {
+	if err := req.ParseForm(); err != nil {
+		return nil, fmt.Sprint("Cannot parse params ", err)
 	}
+	strWithoutSpaces := strings.Replace(req.Form.Get("pairs"), " ", "", 1)
+	return strings.Split(strWithoutSpaces, ","), ""
 }
 
-func (m *safeMap) Set(symbol string, newPrice string) {
-	m.mu.Lock()
-	m.prices[symbol] = newPrice
-	m.mu.Unlock()
-}
-
-func (m *safeMap) Value(symbol string) string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	price, ok := m.prices[symbol]
+func parsePostPairs(req *http.Request) ([]string, errReason) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		return nil, fmt.Sprint("Cannot read request body ", err)
+	}
+	var currencies map[string][]string
+	if err := json.Unmarshal(body, &currencies); err != nil {
+		return nil, fmt.Sprint("Cannot parse json ", err)
+	}
+	_, ok := currencies["pairs"]
 	if !ok {
-		return ""
+		return nil, `Cannot find "pairs" in request json`
+
 	}
-	return price
-}
-
-func (m *safeMap) Get() map[string]string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.prices
-}
-
-func (m *safeMap) Print() {
-	m.mu.Lock()
-	fmt.Println(m.prices)
-	m.mu.Unlock()
+	return currencies["pairs"], ""
 }
 
 var serverCmd = &cobra.Command{
@@ -59,8 +51,8 @@ var serverCmd = &cobra.Command{
 	Short: "Short server description",
 	Long:  "Long server description",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		const requestDuration = 5 * time.Second
-		pricesMap := NewSafeMap()
+
+		pricesMap := safemap.New()
 
 		go func() {
 			for {
@@ -69,71 +61,55 @@ var serverCmd = &cobra.Command{
 					os.Exit(1)
 				}
 				for _, v := range cryptosInfo {
-					if contains(crypto.GetBinanceSupportedCryptos(), v.Symbol) {
-						// save new price in the prices map
+					if utils.Contains(crypto.GetBinanceSupportedCryptos(), v.Symbol) {
 						pricesMap.Set(v.Symbol, v.Price)
 					}
 				}
-				// pricesMap.Print()
-				time.Sleep(requestDuration)
+				time.Sleep(binanceRequestDuration)
 			}
 		}()
 
-		// run server
 		http.HandleFunc("/api/v1/rates", func(w http.ResponseWriter, req *http.Request) {
+			var pairs []string
+			var errorReason errReason
+
 			switch req.Method {
 			case "GET":
-				if err := req.ParseForm(); err != nil {
-					fmt.Println("Cannot parse form")
-				}
-				pairs := strings.Split(strings.Replace(req.Form.Get("pairs"), " ", "", 1), ",")
-				fmt.Println(pairs)
-
-				w.Header().Set("Content-Type", "application/json")
-				resp := make(map[string]string)
-				for _, pair := range pairs {
-					priceValue := pricesMap.Value(crypto.ConvertToBinanceSymbol(pair))
-					if len(priceValue) != 0 {
-						resp[pair] = priceValue
-					}
-				}
-				jsonResp, err := json.Marshal(resp)
-				if err != nil {
-					fmt.Errorf("Cannot create json response %s", err)
-					return
-				}
-				w.Write(jsonResp)
+				pairs, errorReason = parseGetPairs(req)
 
 			case "POST":
-				body, err := ioutil.ReadAll(req.Body)
-				if err != nil {
-					fmt.Println("Cannot read body")
-				}
-				fmt.Println(string(body))
-				var currencies map[string][]string
-				if err := json.Unmarshal(body, &currencies); err != nil {
-					fmt.Println("Cannot parse json", err)
-				}
-
-				w.Header().Set("Content-Type", "application/json")
-				resp := make(map[string]string)
-				for _, pair := range currencies["pairs"] {
-					priceValue := pricesMap.Value(crypto.ConvertToBinanceSymbol(pair))
-					if len(priceValue) != 0 {
-						resp[pair] = priceValue
-					}
-				}
-
-				jsonResp, err := json.Marshal(resp)
-				if err != nil {
-					fmt.Errorf("Cannot create json response %s", err)
-					return
-				}
-				w.Write(jsonResp)
+				pairs, errorReason = parsePostPairs(req)
 
 			default:
 				http.NotFound(w, req)
+				return
 			}
+
+			// send response
+			w.Header().Set("Content-Type", "application/json")
+			var resp = make(map[string]string)
+
+			for _, pair := range pairs {
+				priceValue := pricesMap.Value(crypto.ConvertToBinanceSymbol(pair))
+				if len(priceValue) != 0 {
+					resp[pair] = priceValue
+				}
+			}
+			if len(resp) == 0 {
+				resp["res"] = "Error"
+				resp["reason"] = errorReason
+
+				if len(resp["reason"]) == 0 {
+					resp["reason"] = "Unknown error"
+				}
+			}
+
+			jsonResp, err := json.Marshal(resp)
+			if err != nil {
+				fmt.Errorf("Cannot create json response %s", err)
+				return
+			}
+			w.Write(jsonResp)
 		})
 
 		fmt.Println("Listening at port 3001...")
