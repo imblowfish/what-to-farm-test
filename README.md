@@ -23,7 +23,7 @@ curl http://localhost:3001/api/v1/rates?pairs=BTC-USDT,ETH-USDT
 ### POST
 
 ```curl
-curl -X POST http://localhost:3001/api/v1/rates --data '{ "pairs": ["BTC-USDT", "ETH-USDT"] }' [http://localhost:3001/api/v1/rates](http://localhost:3001/api/v1/rates)
+curl -X POST http://localhost:3001/api/v1/rates --data '{ "pairs": ["BTC-USDT", "ETH-USDT"] }'
 ```
 
 ```json
