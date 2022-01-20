@@ -39,17 +39,6 @@ func ConvertToBinanceSymbol(symbol string) string {
 	return converted
 }
 
-func ConvertFromBinanceSymbol(symbol string) string {
-	converted, ok := map[string]string{
-		"ETHUSDT": "ETH-USDT",
-		"BTCUSDT": "BTC-USDT",
-	}[symbol]
-	if !ok {
-		converted = ""
-	}
-	return converted
-}
-
 func MakeBinanceRequest() ([]CryptoInfo, error) {
 	resp, err := http.Get("https://api.binance.com/api/v3/ticker/price")
 	if err != nil {
