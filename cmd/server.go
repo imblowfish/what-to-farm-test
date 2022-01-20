@@ -80,7 +80,8 @@ var serverCmd = &cobra.Command{
 				pairs, errorReason = parsePostPairs(req)
 
 			default:
-				http.NotFound(w, req)
+				w.WriteHeader(405)
+				w.Write([]byte("405 Error: Method not supported"))
 				return
 			}
 
